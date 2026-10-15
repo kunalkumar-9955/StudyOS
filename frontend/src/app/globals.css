@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root,
+html.dark,
+[data-theme='dark'] {
+  --app-bg: #030712;
+  --card-bg: #0b1120;
+  --card-bg-subtle: #111827;
+  --card-border: #1e293b;
+  --card-border-hover: #334155;
+  --nav-bg: rgba(7, 13, 26, 0.95);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  
+  --input-bg: #0f172a;
+  --input-border: #334155;
+  
+  --glass-bg: rgba(11, 17, 32, 0.85);
+  --glass-elevated: rgba(17, 24, 39, 0.95);
+  
+  --accent-study: #10b981;
+  --accent-study-glow: rgba(16, 185, 129, 0.25);
+  --accent-break: #f59e0b;
+  --accent-break-glow: rgba(245, 158, 11, 0.25);
+  --accent-indigo: #6366f1;
+  --accent-indigo-glow: rgba(99, 102, 241, 0.25);
+  --accent-danger: #ef4444;
+  --accent-danger-glow: rgba(239, 68, 68, 0.25);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html.light,
+[data-theme='light'] {
+  --app-bg: #f8fafc;
+  --card-bg: #ffffff;
+  --card-bg-subtle: #f1f5f9;
+  --card-border: #e2e8f0;
+  --card-border-hover: #cbd5e1;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  
+  --glass-bg: rgba(255, 255, 255, 0.9);
+  --glass-elevated: rgba(255, 255, 255, 0.98);
+
+  --accent-study: #059669;
+  --accent-study-glow: rgba(5, 150, 105, 0.2);
+  --accent-break: #d97706;
+  --accent-break-glow: rgba(217, 119, 6, 0.2);
+  --accent-indigo: #4f46e5;
+  --accent-indigo-glow: rgba(79, 70, 229, 0.2);
+  --accent-danger: #dc2626;
+  --accent-danger-glow: rgba(220, 38, 38, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* StudyOS Semantic Theme Utility Classes */
+.theme-bg {
+  background-color: var(--app-bg);
+}
+
+.theme-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+
+.theme-card-subtle {
+  background-color: var(--card-bg-subtle);
+  border: 1px solid var(--card-border);
+}
+
+.theme-nav {
+  background-color: var(--nav-bg);
+  border-color: var(--card-border);
+}
+
+.theme-input {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+}
+
+.theme-input:focus {
+  outline: none;
+  border-color: var(--accent-study);
+}
+
+.theme-text-primary {
+  color: var(--text-primary);
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary);
+}
+
+.theme-text-muted {
+  color: var(--text-muted);
+}
+
+.theme-text-dim {
+  color: var(--text-dim);
+}
+
+.theme-border {
+  border-color: var(--card-border);
+}
+
+/* Glassmorphism utility with theme adaptation */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+
+.glass-panel-elevated {
+  background: var(--glass-elevated);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+}
+
+/* Focus Mode Glow */
+.glow-study {
+  box-shadow: 0 0 35px var(--accent-study-glow);
+}
+
+.glow-break {
+  box-shadow: 0 0 35px var(--accent-break-glow);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+button, a, input, select, textarea {
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Safe area padding utilities for mobile screens */
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Responsive media safeguards */
+img, svg, canvas {
+  max-width: 100%;
+}
