@@ -9,7 +9,14 @@ export const getApiBaseUrl = (): string => {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
   }
   if (typeof window !== "undefined") {
-    // In browser, use same-origin /api proxied directly by Next.js to backend
+    // When running locally in browser, talk directly to Django backend on port 8000
+    // This guarantees immediate connection without relying on Next.js dev server restart
+    if (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+    ) {
+      return "http://127.0.0.1:8000/api";
+    }
     return "/api";
   }
   return "http://127.0.0.1:8000/api";
@@ -96,8 +103,31 @@ export class ApiClient {
       }
 
       if (!response.ok) {
+        // Fallback retry: if relative /api returned 404, retry directly on 127.0.0.1:8000
+        if (
+          response.status === 404 &&
+          typeof window !== "undefined" &&
+          !url.includes("127.0.0.1:8000") &&
+          (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+        ) {
+          const directUrl = `http://127.0.0.1:8000/api${cleanEndpoint}`;
+          try {
+            const retryRes = await fetch(directUrl, { ...options, headers });
+            if (retryRes.ok) {
+              if (retryRes.status === 204) return {} as T;
+              return await retryRes.json();
+            }
+          } catch {
+            // direct fallback failed, proceed with original error
+          }
+        }
+
         const errorData = await response.json().catch(() => ({}));
-        const errorMsg = errorData.detail || errorData.error || errorData.message || `API request failed with status ${response.status}`;
+        const errorMsg =
+          errorData.detail ||
+          errorData.error ||
+          errorData.message ||
+          `API request failed with status ${response.status}`;
         throw new Error(errorMsg);
       }
 
