@@ -294,14 +294,35 @@ export default function DashboardView({
           </div>
 
           <div className="space-y-3.5">
-            {rankedSubjects.map((s) => {
-              const pending = DailySessionEngine.getPendingSessionForSubject(s.id);
-              const isTargetMet = s.target_progress_percent >= 100;
-              return (
-              <div
-                key={s.id}
-                className="p-4 rounded-xl theme-card border theme-border space-y-2.5 transition-all"
-              >
+            {rankedSubjects.length === 0 ? (
+              <div className="p-8 rounded-2xl theme-card-subtle border theme-border text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <h4 className="font-extrabold text-base theme-text-primary">
+                  Your Study Workspace is Ready
+                </h4>
+                <p className="text-xs theme-text-muted max-w-md mx-auto">
+                  No study subjects added yet. Create your first subject to set daily focused minute targets and track real progress.
+                </p>
+                <div className="pt-2 flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => onNavigateTab("subjects")}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 cursor-pointer"
+                  >
+                    + Add First Subject
+                  </button>
+                </div>
+              </div>
+            ) : (
+              rankedSubjects.map((s) => {
+                const pending = DailySessionEngine.getPendingSessionForSubject(s.id);
+                const isTargetMet = s.target_progress_percent >= 100;
+                return (
+                <div
+                  key={s.id}
+                  className="p-4 rounded-xl theme-card border theme-border space-y-2.5 transition-all"
+                >
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <div
@@ -429,7 +450,8 @@ export default function DashboardView({
                 </div>
               </div>
             );
-          })}
+          })
+        )}
           </div>
         </div>
 

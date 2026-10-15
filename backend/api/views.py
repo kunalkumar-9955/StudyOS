@@ -31,6 +31,7 @@ from .serializers import (
     UserSerializer,
     UserRegistrationSerializer,
     UserProfileSerializer,
+    CustomTokenObtainPairSerializer,
     SubjectSerializer,
     TimetableEntrySerializer,
     ScheduleExceptionSerializer,
@@ -50,6 +51,11 @@ from .services import (
     BacklogService,
     ResourceValidationService,
 )
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class RegisterView(APIView):

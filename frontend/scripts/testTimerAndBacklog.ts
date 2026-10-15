@@ -52,20 +52,47 @@ function runAllMasterTests() {
   console.log("==================================================================");
 
   // -------------------------------------------------------------
-  // TEST A: Partial Daily Target (120m target, 35m study -> 85m remaining)
+  // TEST A: Partial Daily Target (120m target, 35m study -> 85m remaining) & 5:00 AM Boundary
   // -------------------------------------------------------------
-  console.log("\n[TEST A] Partial Daily Target Persistence & Resumption");
+  console.log("\n[TEST A] Partial Daily Target Persistence & 5:00 AM Study Boundary");
   mockLocalStorage.clear();
   setFakeTime(1700000000000);
-  const testDate = "2026-10-15";
 
-  // Daily target: 120 minutes for Python
+  // 1. Verify 5:00 AM local study boundary calculation
+  // Local 04:30 AM Oct 15 -> must belong to previous study cycle (2026-10-14)
+  const date430AM = new Date("2026-10-15T04:30:00");
+  const studyDay430AM = DailySessionEngine.getStudyDayDateString(date430AM);
+  assert(studyDay430AM === "2026-10-14", `04:30 AM must map to 2026-10-14, got ${studyDay430AM}`);
+
+  // Local 05:00 AM Oct 15 -> new study cycle begins (2026-10-15)
+  const date500AM = new Date("2026-10-15T05:00:00");
+  const studyDay500AM = DailySessionEngine.getStudyDayDateString(date500AM);
+  assert(studyDay500AM === "2026-10-15", `05:00 AM must map to 2026-10-15, got ${studyDay500AM}`);
+
+  // Local 11:30 PM Oct 15 -> still in 2026-10-15 study cycle
+  const date1130PM = new Date("2026-10-15T23:30:00");
+  const studyDay1130PM = DailySessionEngine.getStudyDayDateString(date1130PM);
+  assert(studyDay1130PM === "2026-10-15", `11:30 PM must map to 2026-10-15, got ${studyDay1130PM}`);
+
+  // Local 04:59 AM Oct 16 -> still in 2026-10-15 study cycle!
+  const date459AMNext = new Date("2026-10-16T04:59:00");
+  const studyDay459AMNext = DailySessionEngine.getStudyDayDateString(date459AMNext);
+  assert(studyDay459AMNext === "2026-10-15", `04:59 AM next day must map to 2026-10-15, got ${studyDay459AMNext}`);
+
+  // Local 05:00 AM Oct 16 -> Rollover to 2026-10-16
+  const date500AMNext = new Date("2026-10-16T05:00:00");
+  const studyDay500AMNext = DailySessionEngine.getStudyDayDateString(date500AMNext);
+  assert(studyDay500AMNext === "2026-10-16", `05:00 AM next day must map to 2026-10-16, got ${studyDay500AMNext}`);
+  console.log("  -> PASS: 5:00 AM Study Day boundary correctly separates daily cycles across all hours.");
+
+  // 2. Partial Target Persistence
+  const testDate = "2026-10-15";
   const pythonSubject = { id: 1, name: "Python", color: "#10b981", daily_target_minutes: 120 };
   const dailyRecord = DailySessionEngine.getOrCreateDailyRecord(pythonSubject, testDate);
   assert(dailyRecord.originalDailyTargetMinutes === 120, "Daily target must be 120m");
   assert(dailyRecord.remainingTargetMinutes === 120, "Initial remaining must be 120m");
 
-  // User studies for 35 minutes (2100 seconds)
+  // User studies for 35 minutes (2100 seconds) and clicks Finish Block early
   const sessionA = TimerEngine.createInitialSession({
     subjectId: 1,
     subjectName: "Python",
@@ -76,20 +103,32 @@ function runAllMasterTests() {
   advanceFakeTime(2100); // 35 minutes
   const pausedA = TimerEngine.pauseSession(startedA);
 
-  // Save session & record actual study onto daily target
-  DailySessionEngine.savePendingSessionForSubject(1, pausedA);
-  const progressA = DailySessionEngine.recordStudyProgress(1, 2100, testDate);
+  // Save session & record actual study onto daily target with isEarlyFinish=true
+  const progressA = DailySessionEngine.recordStudyProgress(1, 2100, testDate, true);
 
   assert(progressA.record.completedStudyMinutes === 35, `Completed study must be 35m, got ${progressA.record.completedStudyMinutes}`);
   assert(progressA.record.remainingTargetMinutes === 85, `Remaining target must be exactly 85m, got ${progressA.record.remainingTargetMinutes}`);
+  assert(progressA.record.status === "PENDING_RESUME", `Status must be PENDING_RESUME, got ${progressA.record.status}`);
   assert(!progressA.isTargetCompleted, "Target must remain incomplete (85m left)");
 
-  // User closes Focus Mode and returns to Python later that day
+  // Preserve pending session for 85m remaining
+  const pendingSessionA: ActiveSessionData = {
+    ...pausedA,
+    state: "PAUSED",
+    totalBlockMinutes: 85,
+    currentSegmentIndex: 0,
+    currentSegmentStartedAt: null,
+    isEarlyFinish: false,
+  };
+  DailySessionEngine.savePendingSessionForSubject(1, pendingSessionA);
+
+  // User returns to Python later that day
   const recoveredSessionA = DailySessionEngine.getPendingSessionForSubject(1);
   assert(recoveredSessionA !== null, "Pending session must be recoverable");
   assert(recoveredSessionA?.state === "PAUSED", "Recovered session must be in PAUSED state");
   assert(recoveredSessionA?.accumulatedStudySeconds === 2100, "Accumulated study must preserve 2100s (35m)");
-  console.log("  -> PASS: 35m recorded, 85m remaining. Session recovered without resetting timer.");
+  assert(recoveredSessionA?.totalBlockMinutes === 85, "Recovered session must reflect 85m remaining");
+  console.log("  -> PASS: 35m recorded, 85m remaining. Target marked PENDING_RESUME and recoverable without reset.");
 
   // -------------------------------------------------------------
   // TEST B: Pause and Resume Timer Math (Exact frozen remaining time)

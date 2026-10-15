@@ -2,26 +2,37 @@
  * StudyOS Daily Subject Target & Session Persistence Engine
  * 
  * Provides:
- * 1. Distinction between Daily Subject Targets and individual study sessions.
- * 2. Persistent subject sessions that can be paused and resumed without resetting.
- * 3. Daily date tracking with calendar rollover (yesterday's unfinished target -> previous backlog).
- * 4. Multi-subject session persistence (working on Python does not wipe DSA's pending session).
- * 5. Safe recovery across browser reloads, laptop restarts, and visibility change tab-switching.
+ * 1. 5:00 AM Local Time Daily Study-Cycle Boundary (Study day runs from 5:00 AM to 4:59 AM next day).
+ * 2. Distinction between Daily Subject Targets (authoritative goal) and individual study blocks.
+ * 3. Partial Finish Block preservation: Finishing early (e.g. 35m of 120m target) saves actual 35m,
+ *    preserves 85m remaining target as PENDING / RESUMABLE, and does NOT reset or wipe the target.
+ * 4. Completed target protection: Target is COMPLETED only when actual study meets or exceeds target.
+ *    Resume is NOT offered for completed targets.
+ * 5. Idempotent 5:00 AM rollover: Unfinished work rolls into backlog once without duplicate accumulation.
+ * 6. Historical study records preserved permanently across calendar dates.
  */
 
 import { ActiveSessionData, TimerEngine } from "./timerEngine";
 
+export type DailyTargetStatus =
+  | "NOT_STARTED"
+  | "IN_PROGRESS"
+  | "PAUSED"
+  | "PENDING_RESUME"
+  | "COMPLETED"
+  | "FINISHED_EARLY";
+
 export interface DailySubjectRecord {
-  id: string; // "target_{subjectId}_{date}"
+  id: string; // "target_{subjectId}_{studyDayDate}"
   subjectId: number;
   subjectName: string;
   subjectColor: string;
-  date: string; // "YYYY-MM-DD" in local timezone
+  date: string; // "YYYY-MM-DD" representing the 5:00 AM study-cycle date
   originalDailyTargetMinutes: number; // e.g. 120
   completedStudySeconds: number;      // e.g. 2100 (35m)
   completedStudyMinutes: number;      // e.g. 35
   remainingTargetMinutes: number;     // e.g. 85 (max(0, original - completed))
-  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  status: DailyTargetStatus;
   lastSessionId?: string;
   lastSavedTimestamp: number;
   completedAt?: number;
@@ -40,26 +51,44 @@ export interface DayRolloverResult {
 export class DailySessionEngine {
   private static DAILY_TARGETS_KEY = "studyos_daily_subject_records";
   private static PENDING_SESSIONS_KEY = "studyos_pending_subject_sessions";
-  private static LAST_ACTIVE_DATE_KEY = "studyos_last_active_date";
-  private static ROLLED_OVER_DATES_KEY = "studyos_rolled_over_dates";
+  private static LAST_ACTIVE_DATE_KEY = "studyos_last_active_study_day";
+  private static ROLLED_OVER_DATES_KEY = "studyos_rolled_over_study_days";
 
   /**
-   * Generates a stable date string (YYYY-MM-DD) in the user's local timezone.
+   * Generates a stable study-day date string (YYYY-MM-DD) based on the 5:00 AM local cycle boundary.
+   * A study day starts at 5:00:00 AM local time and ends at 4:59:59 AM the next calendar day.
+   * 
+   * Examples:
+   * - 2026-10-15 04:30 AM -> Study Day is "2026-10-14" (belongs to previous study cycle)
+   * - 2026-10-15 05:00 AM -> Study Day is "2026-10-15" (new study cycle begins)
+   * - 2026-10-15 11:30 PM -> Study Day is "2026-10-15"
+   * - 2026-10-16 04:59 AM -> Study Day is "2026-10-15" (still part of 15th study cycle)
+   * - 2026-10-16 05:00 AM -> Study Day is "2026-10-16" (new study cycle begins)
    */
-  static getLocalDateString(dateInput?: Date | number): string {
-    const d = dateInput
+  static getStudyDayDateString(dateInput?: Date | number, resetHour: number = 5): string {
+    const raw = dateInput
       ? typeof dateInput === "number"
         ? new Date(dateInput)
         : dateInput
       : new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
+
+    // Offset time by resetHour hours so anything before 5:00 AM maps to the previous calendar day
+    const effective = new Date(raw.getTime() - resetHour * 60 * 60 * 1000);
+    const year = effective.getFullYear();
+    const month = String(effective.getMonth() + 1).padStart(2, "0");
+    const day = String(effective.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
   /**
-   * Reads all daily target records from localStorage.
+   * Alias for backwards compatibility, defaults to 5:00 AM cycle date.
+   */
+  static getLocalDateString(dateInput?: Date | number): string {
+    return this.getStudyDayDateString(dateInput, 5);
+  }
+
+  /**
+   * Reads all daily target records from storage.
    */
   static getAllDailyRecords(): Record<string, DailySubjectRecord> {
     if (typeof window === "undefined") return {};
@@ -72,7 +101,7 @@ export class DailySessionEngine {
   }
 
   /**
-   * Saves all daily target records to localStorage.
+   * Saves all daily target records to storage.
    */
   static saveAllDailyRecords(records: Record<string, DailySubjectRecord>): void {
     if (typeof window === "undefined") return;
@@ -84,13 +113,13 @@ export class DailySessionEngine {
   }
 
   /**
-   * Retrieves or initializes a daily subject record for a given subject and date.
+   * Retrieves or initializes a daily subject record for a given subject and study-cycle date.
    */
   static getOrCreateDailyRecord(
     subject: { id: number; name: string; color?: string; daily_target_minutes?: number },
     dateStr?: string
   ): DailySubjectRecord {
-    const date = dateStr || this.getLocalDateString();
+    const date = dateStr || this.getStudyDayDateString();
     const key = `target_${subject.id}_${date}`;
     const allRecords = this.getAllDailyRecords();
 
@@ -119,7 +148,7 @@ export class DailySessionEngine {
   }
 
   /**
-   * Updates an existing daily record for a subject.
+   * Saves or updates an existing daily record for a subject.
    */
   static saveDailyRecord(record: DailySubjectRecord): void {
     const all = this.getAllDailyRecords();
@@ -150,7 +179,7 @@ export class DailySessionEngine {
     if (typeof window === "undefined") return;
     try {
       const all = this.getAllPendingSessions();
-      if (session && session.state !== "CANCELLED") {
+      if (session && session.state !== "CANCELLED" && session.state !== "COMPLETED") {
         all[subjectId] = session;
       } else {
         delete all[subjectId];
@@ -169,8 +198,7 @@ export class DailySessionEngine {
     const session = all[subjectId];
     if (!session) return null;
 
-    // Check if session is valid and resumable
-    if (session.state === "CANCELLED") {
+    if (session.state === "CANCELLED" || session.state === "COMPLETED") {
       this.clearPendingSessionForSubject(subjectId);
       return null;
     }
@@ -178,23 +206,40 @@ export class DailySessionEngine {
   }
 
   /**
-   * Removes pending session for a subject (e.g. upon final completion or cancellation).
+   * Removes pending session for a subject (e.g. upon full target completion or cancellation).
    */
   static clearPendingSessionForSubject(subjectId: number): void {
-    this.savePendingSessionForSubject(subjectId, null);
+    if (typeof window === "undefined") return;
+    try {
+      const all = this.getAllPendingSessions();
+      delete all[subjectId];
+      localStorage.setItem(this.PENDING_SESSIONS_KEY, JSON.stringify(all));
+    } catch (e) {
+      console.error("[StudyOS] Failed to clear pending session:", e);
+    }
   }
 
   /**
    * Records actual focused study time onto the subject's daily target record.
-   * Updates completed study duration and remaining target.
-   * If remaining target reaches 0, marks daily target as COMPLETED.
+   * 
+   * Core Rules:
+   * 1. ONLY actual focused study seconds are accumulated. Breaks are not counted as study.
+   * 2. If completed minutes < original target:
+   *    - Target is marked 'IN_PROGRESS' or 'PENDING_RESUME'.
+   *    - Remaining minutes = max(0, originalTarget - completedMinutes).
+   *    - Target is NOT marked COMPLETED.
+   * 3. If completed minutes >= original target:
+   *    - Target is marked 'COMPLETED'.
+   *    - Remaining minutes = 0.
+   *    - isTargetCompleted = true.
    */
   static recordStudyProgress(
     subjectId: number,
     additionalStudySeconds: number,
-    dateStr?: string
+    dateStr?: string,
+    isEarlyFinish?: boolean
   ): { record: DailySubjectRecord; isTargetCompleted: boolean } {
-    const date = dateStr || this.getLocalDateString();
+    const date = dateStr || this.getStudyDayDateString();
     const key = `target_${subjectId}_${date}`;
     const all = this.getAllDailyRecords();
     let record = all[key];
@@ -220,12 +265,23 @@ export class DailySessionEngine {
     const remainingMinutes = Math.max(0, record.originalDailyTargetMinutes - newCompletedMinutes);
     const isCompleted = remainingMinutes === 0;
 
+    let targetStatus: DailyTargetStatus;
+    if (isCompleted) {
+      targetStatus = "COMPLETED";
+    } else if (isEarlyFinish) {
+      targetStatus = "PENDING_RESUME";
+    } else if (newCompletedMinutes > 0) {
+      targetStatus = "IN_PROGRESS";
+    } else {
+      targetStatus = "NOT_STARTED";
+    }
+
     const updatedRecord: DailySubjectRecord = {
       ...record,
       completedStudySeconds: newCompletedSeconds,
       completedStudyMinutes: newCompletedMinutes,
       remainingTargetMinutes: remainingMinutes,
-      status: isCompleted ? "COMPLETED" : "IN_PROGRESS",
+      status: targetStatus,
       lastSavedTimestamp: Date.now(),
       completedAt: isCompleted ? (record.completedAt || Date.now()) : undefined,
     };
@@ -240,13 +296,14 @@ export class DailySessionEngine {
   }
 
   /**
-   * Checks for a calendar day change and rolls over unfinished daily targets into backlog.
+   * Checks for a 5:00 AM study-cycle rollover and rolls over unfinished daily targets into backlog.
    * 
    * Strict Rules:
-   * 1. Today's targets are created fresh.
-   * 2. Yesterday's unfinished target (original - completed) is rolled over into previous_backlog_minutes.
-   * 3. Rollover happens EXACTLY ONCE per calendar date to prevent duplicate backlog accumulation.
-   * 4. Old completed targets stay completed.
+   * 1. Rollover evaluates at 5:00 AM local time.
+   * 2. Today's targets start fresh for the new study day.
+   * 3. Yesterday's unfinished target (original - completed) is rolled over into previous_backlog_minutes.
+   * 4. Rollover happens EXACTLY ONCE per calendar study day to prevent duplicate backlog accumulation.
+   * 5. Historical records and completed targets remain stored as history and are never wiped.
    */
   static checkAndHandleDayRollover(
     subjects: any[],
@@ -259,30 +316,36 @@ export class DailySessionEngine {
       return { updatedSubjects: subjects, rolloverResult: null };
     }
 
-    const todayStr = currentDateOverride || this.getLocalDateString();
-    const lastActiveDate = localStorage.getItem(this.LAST_ACTIVE_DATE_KEY);
+    const currentStudyDayStr = currentDateOverride || this.getStudyDayDateString();
+    const lastActiveStudyDay =
+      localStorage.getItem(this.LAST_ACTIVE_DATE_KEY) ||
+      localStorage.getItem("studyos_last_active_date");
 
-    // Initial run or same day: no rollover needed
-    if (!lastActiveDate) {
-      localStorage.setItem(this.LAST_ACTIVE_DATE_KEY, todayStr);
+    // Initial run: record current study day, no rollover needed yet
+    if (!lastActiveStudyDay) {
+      localStorage.setItem(this.LAST_ACTIVE_DATE_KEY, currentStudyDayStr);
+      localStorage.setItem("studyos_last_active_date", currentStudyDayStr);
       return { updatedSubjects: subjects, rolloverResult: null };
     }
 
-    if (lastActiveDate === todayStr) {
+    // Same study day: no rollover needed
+    if (lastActiveStudyDay === currentStudyDayStr) {
       return { updatedSubjects: subjects, rolloverResult: null };
     }
 
-    // A new calendar day has arrived!
-    // Check if we have already rolled over for this past date to avoid duplicate backlog
+    // A new 5:00 AM study cycle has arrived!
+    // Check if we have already rolled over for this past date to prevent duplicate backlog accumulation
     let rolledOverDates: string[] = [];
     try {
-      const saved = localStorage.getItem(this.ROLLED_OVER_DATES_KEY);
+      const saved =
+        localStorage.getItem(this.ROLLED_OVER_DATES_KEY) ||
+        localStorage.getItem("studyos_rolled_over_dates");
       if (saved) rolledOverDates = JSON.parse(saved);
     } catch {}
 
-    if (rolledOverDates.includes(lastActiveDate)) {
-      // Already rolled over this past date
-      localStorage.setItem(this.LAST_ACTIVE_DATE_KEY, todayStr);
+    if (rolledOverDates.includes(lastActiveStudyDay)) {
+      // Already rolled over this past study day
+      localStorage.setItem(this.LAST_ACTIVE_DATE_KEY, currentStudyDayStr);
       return { updatedSubjects: subjects, rolloverResult: null };
     }
 
@@ -295,14 +358,13 @@ export class DailySessionEngine {
     }[] = [];
 
     const updatedSubjects = subjects.map((subj) => {
-      const pastKey = `target_${subj.id}_${lastActiveDate}`;
+      const pastKey = `target_${subj.id}_${lastActiveStudyDay}`;
       const pastRecord = allRecords[pastKey];
 
       let unfinishedMins = 0;
       if (pastRecord) {
         unfinishedMins = pastRecord.remainingTargetMinutes;
       } else {
-        // If no past session record existed, check if user completed anything
         const targetMins = subj.daily_target_minutes || 60;
         const completedMins = Math.round((subj.total_focused_study_seconds || 0) / 60);
         unfinishedMins = Math.max(0, targetMins - completedMins);
@@ -332,14 +394,16 @@ export class DailySessionEngine {
       };
     });
 
-    // Mark past date as rolled over
-    rolledOverDates.push(lastActiveDate);
+    // Mark past date as rolled over to guarantee idempotency
+    rolledOverDates.push(lastActiveStudyDay);
     localStorage.setItem(this.ROLLED_OVER_DATES_KEY, JSON.stringify(rolledOverDates));
-    localStorage.setItem(this.LAST_ACTIVE_DATE_KEY, todayStr);
+    localStorage.setItem("studyos_rolled_over_dates", JSON.stringify(rolledOverDates));
+    localStorage.setItem(this.LAST_ACTIVE_DATE_KEY, currentStudyDayStr);
+    localStorage.setItem("studyos_last_active_date", currentStudyDayStr);
 
     const rolloverResult: DayRolloverResult = {
-      previousDate: lastActiveDate,
-      currentDate: todayStr,
+      previousDate: lastActiveStudyDay,
+      currentDate: currentStudyDayStr,
       carriedOverBacklogs,
     };
 

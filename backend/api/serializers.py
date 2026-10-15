@@ -20,25 +20,67 @@ from .models import (
 from .services import ResourceValidationService
 
 
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
 
 
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Allows authentication using either username or email address.
+    """
+    def validate(self, attrs):
+        username_or_email = attrs.get('username', '').strip()
+        password = attrs.get('password')
+
+        if username_or_email and password:
+            # Check if username_or_email matches an existing email
+            user_by_email = User.objects.filter(email__iexact=username_or_email).first()
+            if user_by_email:
+                attrs['username'] = user_by_email.username
+
+        return super().validate(attrs)
+
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=6)
+    password = serializers.CharField(write_only=True, min_length=6, error_messages={
+        'min_length': 'Password must be at least 6 characters long.'
+    })
+    email = serializers.EmailField(required=True, error_messages={
+        'required': 'Email address is required.',
+        'invalid': 'Please enter a valid email address.'
+    })
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'first_name']
 
+    def validate_username(self, value):
+        username = value.strip()
+        if not username:
+            raise serializers.ValidationError("Username cannot be empty.")
+        if User.objects.filter(username__iexact=username).exists():
+            raise serializers.ValidationError("An account with this username already exists.")
+        return username
+
+    def validate_email(self, value):
+        email = value.strip().lower()
+        if not email:
+            raise serializers.ValidationError("Email address cannot be empty.")
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError("An account with this email address already exists.")
+        return email
+
     def create(self, validated_data):
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email', ''),
+            username=validated_data['username'].strip(),
+            email=validated_data['email'].strip().lower(),
             password=validated_data['password'],
-            first_name=validated_data.get('first_name', '')
+            first_name=validated_data.get('first_name', '').strip()
         )
         UserProfile.objects.create(user=user)
         return user

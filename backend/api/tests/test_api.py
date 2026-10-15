@@ -19,7 +19,25 @@ class AuthAndUserIsolationTestCase(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(username='newuser').exists())
 
-    def test_user_jwt_login(self):
+    def test_duplicate_username_rejection(self):
+        resp = self.client.post('/api/auth/register/', {
+            'username': 'usera',
+            'password': 'password123',
+            'email': 'different@example.com'
+        })
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('username', resp.data)
+
+    def test_duplicate_email_rejection(self):
+        resp = self.client.post('/api/auth/register/', {
+            'username': 'brandnewuser',
+            'password': 'password123',
+            'email': 'a@example.com'
+        })
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', resp.data)
+
+    def test_user_jwt_login_with_username(self):
         resp = self.client.post('/api/auth/login/', {
             'username': 'usera',
             'password': 'password123'
@@ -27,6 +45,30 @@ class AuthAndUserIsolationTestCase(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIn('access', resp.data)
         self.assertIn('refresh', resp.data)
+
+    def test_user_jwt_login_with_email(self):
+        # Users can sign in using their email address in the username field
+        resp = self.client.post('/api/auth/login/', {
+            'username': 'a@example.com',
+            'password': 'password123'
+        })
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn('access', resp.data)
+        self.assertIn('refresh', resp.data)
+
+    def test_invalid_credentials_login(self):
+        resp = self.client.post('/api/auth/login/', {
+            'username': 'usera',
+            'password': 'wrongpassword'
+        })
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_unauthenticated_access_denied(self):
+        # Protected endpoints must deny unauthenticated requests
+        protected_urls = ['/api/subjects/', '/api/plans/', '/api/analytics/', '/api/notes/']
+        for url in protected_urls:
+            resp = self.client.get(url)
+            self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_user_data_isolation(self):
         # Create a subject for User A
