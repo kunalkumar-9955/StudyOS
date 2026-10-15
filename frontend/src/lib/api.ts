@@ -4,7 +4,16 @@
  * and seamlessly provides offline caching & demo fallback when server is unreachable.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+export const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    // In browser, use same-origin /api proxied directly by Next.js to backend
+    return "/api";
+  }
+  return "http://127.0.0.1:8000/api";
+};
 
 export interface AuthTokens {
   access: string;
@@ -49,7 +58,9 @@ export class ApiClient {
   }
 
   static async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
+    const baseUrl = getApiBaseUrl();
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${cleanEndpoint}`;
     const headers = new Headers(options.headers || {});
 
     if (this.accessToken && !headers.has("Authorization")) {
@@ -105,7 +116,8 @@ export class ApiClient {
   private static async tryRefreshToken(): Promise<boolean> {
     if (!this.refreshToken) return false;
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/auth/token/refresh/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh: this.refreshToken }),

@@ -143,11 +143,11 @@ export default function AuthModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="glass-panel-elevated rounded-3xl w-full max-w-md theme-border border p-5 sm:p-7 space-y-5 max-h-[92vh] overflow-y-auto shadow-2xl">
+      <div className="theme-card rounded-3xl w-full max-w-md theme-border border p-5 sm:p-7 space-y-5 max-h-[92vh] overflow-y-auto shadow-2xl relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between border-b theme-border pb-3.5">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center">
               <Lock className="w-5 h-5" />
             </div>
             <div>
@@ -164,7 +164,7 @@ export default function AuthModal({
           <button
             onClick={onClose}
             aria-label="Close modal"
-            className="p-1.5 rounded-xl theme-text-muted hover:theme-text-primary hover:bg-slate-800/40 cursor-pointer transition-colors"
+            className="p-1.5 rounded-xl theme-text-muted hover:theme-text-primary hover:bg-slate-100 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -172,7 +172,7 @@ export default function AuthModal({
 
         {/* Error notification */}
         {error && (
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-start gap-2.5">
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5 font-medium">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="leading-relaxed">{error}</span>
           </div>
@@ -180,7 +180,7 @@ export default function AuthModal({
 
         {/* Success notification */}
         {successNotice && (
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-start gap-2.5">
+          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs flex items-start gap-2.5 font-medium">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="leading-relaxed">{successNotice}</span>
           </div>
@@ -199,7 +199,7 @@ export default function AuthModal({
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={isRegister ? "e.g. kunal_kumar" : "username or user@example.com"}
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium"
+                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 required
                 autoFocus
               />
@@ -219,7 +219,7 @@ export default function AuthModal({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="student@example.com"
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   required
                 />
               </div>
@@ -238,7 +238,7 @@ export default function AuthModal({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium"
+                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 required
                 minLength={6}
               />
@@ -258,7 +258,7 @@ export default function AuthModal({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl theme-input text-xs font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   required
                   minLength={6}
                 />
@@ -299,7 +299,7 @@ export default function AuthModal({
                   setIsRegister(false);
                   setError(null);
                 }}
-                className="text-emerald-400 hover:underline font-bold cursor-pointer ml-1"
+                className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold cursor-pointer ml-1"
               >
                 Sign In
               </button>
@@ -314,7 +314,7 @@ export default function AuthModal({
                   setError(null);
                   setSuccessNotice(null);
                 }}
-                className="text-emerald-400 hover:underline font-bold cursor-pointer ml-1"
+                className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold cursor-pointer ml-1"
               >
                 Create an Account
               </button>

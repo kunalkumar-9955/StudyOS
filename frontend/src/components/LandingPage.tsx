@@ -240,14 +240,14 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                   {/* Progress Bar */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs font-mono">
-                      <span className="text-emerald-400 font-bold">35m completed</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">35m completed</span>
                       <span className="theme-text-muted">85m remaining</span>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                       <div className="h-full bg-emerald-500 rounded-full" style={{ width: "29%" }} />
                     </div>
                   </div>
-                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-center justify-between">
+                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 flex items-center justify-between">
                     <span>Finish Block preserved:</span>
                     <strong className="font-mono">85m resumable</strong>
                   </div>
@@ -270,14 +270,14 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                   <div className="pt-1 flex items-center justify-center gap-2">
                     <button
                       onClick={() => onOpenAuth("register")}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 cursor-pointer"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>Start Study</span>
                     </button>
                     <button
                       onClick={() => onOpenAuth("register")}
-                      className="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs cursor-pointer"
+                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs cursor-pointer"
                     >
                       Pause
                     </button>
@@ -287,10 +287,10 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                 {/* Backlog & Rollover Card */}
                 <div className="p-4 rounded-2xl theme-card-subtle border theme-border space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
                       Daily Boundary
                     </span>
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-teal-500/20 text-teal-700 dark:text-teal-300">
                       Idempotent
                     </span>
                   </div>
@@ -299,13 +299,13 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
                     <p className="text-xs theme-text-muted">Unfinished work never discarded</p>
                   </div>
                   <div className="space-y-2 text-xs">
-                    <div className="p-2 rounded-xl border theme-border bg-slate-900/40 flex items-center justify-between">
+                    <div className="p-2 rounded-xl border theme-border theme-card flex items-center justify-between">
                       <span className="theme-text-secondary">Historical records:</span>
-                      <strong className="text-emerald-400">100% Preserved</strong>
+                      <strong className="text-emerald-600 dark:text-emerald-400">100% Preserved</strong>
                     </div>
-                    <div className="p-2 rounded-xl border theme-border bg-slate-900/40 flex items-center justify-between">
+                    <div className="p-2 rounded-xl border theme-border theme-card flex items-center justify-between">
                       <span className="theme-text-secondary">Unfinished Targets:</span>
-                      <strong className="text-sky-400">Backlog Auto-Allocated</strong>
+                      <strong className="text-sky-600 dark:text-sky-400">Backlog Auto-Allocated</strong>
                     </div>
                   </div>
                   <div className="text-[11px] theme-text-muted">
@@ -498,8 +498,8 @@ export default function LandingPage({ onOpenAuth }: LandingPageProps) {
       {/* ======================================================== */}
       <section className="py-12 border-y theme-border theme-card-subtle">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="p-6 rounded-3xl border theme-border bg-slate-900/60 flex flex-col sm:flex-row items-start sm:items-center gap-4 text-left">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="p-6 rounded-3xl theme-card border theme-border flex flex-col sm:flex-row items-start sm:items-center gap-4 text-left shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div className="space-y-1">

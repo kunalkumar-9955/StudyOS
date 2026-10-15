@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -25,7 +25,12 @@ from .views import (
     SyncViewSet,
 )
 
-router = DefaultRouter()
+class OptionalSlashRouter(DefaultRouter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trailing_slash = '/?'
+
+router = OptionalSlashRouter()
 router.register(r'subjects', SubjectViewSet, basename='subject')
 router.register(r'timetable', TimetableEntryViewSet, basename='timetable')
 router.register(r'exceptions', ScheduleExceptionViewSet, basename='exception')
@@ -40,15 +45,15 @@ router.register(r'notes', StudyNoteViewSet, basename='note')
 router.register(r'sync', SyncViewSet, basename='sync')
 
 urlpatterns = [
-    # Auth endpoints
-    path('auth/register/', RegisterView.as_view(), name='register'),
-    path('auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('auth/profile/', ProfileView.as_view(), name='profile'),
+    # Auth endpoints (supporting both with and without trailing slash)
+    re_path(r'^auth/register/?$', RegisterView.as_view(), name='register'),
+    re_path(r'^auth/login/?$', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    re_path(r'^auth/token/refresh/?$', TokenRefreshView.as_view(), name='token_refresh'),
+    re_path(r'^auth/profile/?$', ProfileView.as_view(), name='profile'),
 
     # Dedicated calculation and reporting endpoints
-    path('available-time/', AvailableTimeView.as_view(), name='available-time'),
-    path('analytics/', AnalyticsView.as_view(), name='analytics'),
+    re_path(r'^available-time/?$', AvailableTimeView.as_view(), name='available-time'),
+    re_path(r'^analytics/?$', AnalyticsView.as_view(), name='analytics'),
 
     # ViewSets
     path('', include(router.urls)),
