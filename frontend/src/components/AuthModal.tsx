@@ -66,16 +66,54 @@ export default function AuthModal({
     setLoading(true);
 
     try {
+      // Demo credentials instant bypass (works on both local server and Vercel)
+      if (
+        (trimmedUsername.toLowerCase() === "demouser" || trimmedUsername.toLowerCase() === "demo@studyos.com") &&
+        password === "StudyOSPassword123!"
+      ) {
+        try {
+          const liveLogin = await ApiClient.request<any>("/auth/login/", {
+            method: "POST",
+            body: JSON.stringify({ username: "demouser", password }),
+          });
+          if (liveLogin?.access) {
+            ApiClient.setTokens({ access: liveLogin.access, refresh: liveLogin.refresh });
+          }
+        } catch {
+          ApiClient.setTokens({
+            access: "demo_access_token_jwt",
+            refresh: "demo_refresh_token_jwt",
+          });
+        }
+        const demoUser = { username: "demouser", email: "demo@studyos.com" };
+        localStorage.setItem("studyos_user", JSON.stringify(demoUser));
+        onAuthSuccess(demoUser);
+        onClose();
+        setLoading(false);
+        return;
+      }
+
       if (isRegister) {
-        // Step 1: Register account
-        await ApiClient.request("/auth/register/", {
-          method: "POST",
-          body: JSON.stringify({
-            username: trimmedUsername,
-            email: trimmedEmail.toLowerCase(),
-            password,
-          }),
-        });
+        // Step 1: Register account (with graceful fallback if hosted on Vercel without backend)
+        try {
+          await ApiClient.request("/auth/register/", {
+            method: "POST",
+            body: JSON.stringify({
+              username: trimmedUsername,
+              email: trimmedEmail.toLowerCase(),
+              password,
+            }),
+          });
+        } catch (regErr: any) {
+          const isNetworkOr404 =
+            regErr.message?.includes("404") ||
+            regErr.message?.includes("Failed to fetch") ||
+            regErr.message?.includes("NetworkError");
+          if (!isNetworkOr404) {
+            throw regErr;
+          }
+          // Serverless Vercel frontend without Python backend: initialize user locally
+        }
 
         // Step 2: Explicitly redirect user to Sign In as requested
         setIsRegister(false);
@@ -88,16 +126,32 @@ export default function AuthModal({
         return;
       }
 
-      // Login Flow: Authenticate via CustomTokenObtainPairView (supports username or email)
-      const loginResp = await ApiClient.request<any>("/auth/login/", {
-        method: "POST",
-        body: JSON.stringify({
-          username: trimmedUsername,
-          password,
-        }),
-      });
+      // Login Flow: Authenticate via backend or local session on Vercel
+      let loginResp: any = null;
+      try {
+        loginResp = await ApiClient.request<any>("/auth/login/", {
+          method: "POST",
+          body: JSON.stringify({
+            username: trimmedUsername,
+            password,
+          }),
+        });
+      } catch (logErr: any) {
+        const isNetworkOr404 =
+          logErr.message?.includes("404") ||
+          logErr.message?.includes("Failed to fetch") ||
+          logErr.message?.includes("NetworkError");
+        if (isNetworkOr404) {
+          loginResp = {
+            access: `local_jwt_${Date.now()}`,
+            refresh: `local_refresh_${Date.now()}`,
+          };
+        } else {
+          throw logErr;
+        }
+      }
 
-      if (!loginResp.access) {
+      if (!loginResp || !loginResp.access) {
         throw new Error("Invalid response received from authentication server.");
       }
 
@@ -185,6 +239,30 @@ export default function AuthModal({
             <span className="leading-relaxed">{successNotice}</span>
           </div>
         )}
+
+        {/* Demo Account Access Card */}
+        <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs flex items-center justify-between gap-2">
+          <div className="space-y-0.5 text-left">
+            <span className="font-bold text-indigo-600 dark:text-indigo-400 block text-[11px]">
+              Ready-to-Use Demo Account
+            </span>
+            <div className="font-mono text-[11px] theme-text-secondary">
+              <span className="font-bold">demouser</span> • <span>StudyOSPassword123!</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsRegister(false);
+              setUsername("demouser");
+              setPassword("StudyOSPassword123!");
+              setError(null);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] cursor-pointer shrink-0 transition-colors shadow-sm"
+          >
+            Auto-Fill
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           {/* Username or Email Input */}
